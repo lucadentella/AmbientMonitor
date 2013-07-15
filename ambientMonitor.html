@@ -1,0 +1,211 @@
+<html>
+<head>
+
+    <title>Ambient Monitor</title>
+ 
+    <!--[if lt IE 9]><script language="javascript" type="text/javascript" src="js/excanvas.js"></script><![endif]-->
+    <script language="javascript" type="text/javascript" src="js/jquery-1.10.1.min.js"></script>
+	<script language="javascript" type="text/javascript" src="js/gauge.js"></script>
+	<script language="javascript" type="text/javascript" src="js/jquery.jqplot.min.js"></script>
+	<script language="javascript" type="text/javascript" src="js/jqplot.dateAxisRenderer.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="css/jquery.jqplot.min.css" />
+
+	<script class="code" language="javascript" type="text/javascript">
+	
+	// Charts and gauges objects
+	var tempChar, humChar;
+	var tempGauge, humGauge;
+
+	// Arrays that store datapoints for the two charts
+	var tempData = new Array();
+	var humData = new Array();
+	
+	// Create "dummy" data in the past for the two charts
+	var startTime = (new Date()).getTime() - 270000;
+	for(var i = 0; i < 10; i++) {			
+		tempData.push([startTime, 20]);
+		humData.push([startTime, 50]);
+		startTime += 30000;
+	}
+	
+	// When the document is ready, create objects and fill charts with "dummy" data
+	$(document).ready(function() { 
+
+		showCharts();
+		showGauges();
+	});	
+	
+	// Function that displays the two charts
+	function showCharts() {
+
+		tempChar =  $.jqplot('tempchartdiv', [tempData], {				
+			title: 'Temperature',
+			axes: {
+				xaxis: {
+					renderer:$.jqplot.DateAxisRenderer,
+					tickOptions: {
+							formatString:'%H:%M:%S'
+					},
+					tickInterval: 30
+				},
+				yaxis: {
+					min: 0,
+					max: 30,
+					tickInterval: 5
+				}
+			}
+		});
+
+		humChar =  $.jqplot('humchartdiv', [humData], {				
+			title: 'Humidity',
+			axes: {
+				xaxis: {
+					renderer:$.jqplot.DateAxisRenderer,
+					tickOptions: {
+							formatString:'%H:%M:%S'
+					},
+					tickInterval: 30
+				},
+				yaxis: {
+					min: 0,
+					max: 100,
+					tickInterval: 10
+				}
+			}
+		});	
+	}
+	
+	// Function that displays the two gauges
+	function showGauges() {
+
+		tempGauge = new Gauge({
+			renderTo    : 'tempgauge',
+			width       : 250,
+			height      : 250,
+			glow        : true,
+			units       : '°C',
+			title       : false,
+			minValue    : 0,
+			maxValue    : 30,
+			majorTicks  : ['0','5','10','15','20','25','30'],
+			minorTicks  : 5,
+			strokeTicks : false,
+			highlights  : [
+				{ from : 0,   to : 17, color : 'rgba(33,   103, 255, .70)' },
+				{ from : 17, to : 24, color : 'rgba(50, 255, 61, .70)' },
+				{ from : 24, to : 30, color : 'rgba(255, 00,  0, .70)' },
+			],
+			colors      : {
+				plate      : '#824E00',
+				majorTicks : '#f5f5f5',
+				minorTicks : '#ddd',
+				title      : '#fff',
+				units      : '#000',
+				numbers    : '#eee',
+				needle     : { start : 'rgba(240, 128, 128, 1)', end : 'rgba(255, 160, 122, .9)' }
+			}
+		});
+
+		humGauge = new Gauge({
+			renderTo    : 'humgauge',
+			width       : 250,
+			height      : 250,
+			glow        : true,
+			units       : '%',
+			title       : false,
+			minValue    : 0,
+			maxValue    : 100,
+			majorTicks  : ['0','10','20','30','40','50','60','70','80','90','100'],
+			minorTicks  : 5,
+			strokeTicks : false,
+			highlights  : [
+				{ from : 0,   to : 50, color : 'rgba(33, 103, 255, .70)' },
+				{ from : 50,   to : 65, color : 'rgba(205, 216, 0, .70)' },
+				{ from : 65, to : 85, color : 'rgba(50, 255, 61, .70)' },
+				{ from : 85, to : 100, color : 'rgba(255, 0,  0, .70)' },
+			],
+			colors      : {
+				plate      : '#824E00',
+				majorTicks : '#f5f5f5',
+				minorTicks : '#ddd',
+				title      : '#fff',
+				units      : '#000',
+				numbers    : '#eee',
+				needle     : { start : 'rgba(240, 128, 128, 1)', end : 'rgba(255, 160, 122, .9)' }
+			}
+		});
+
+		tempGauge.draw();
+		humGauge.draw();
+	};
+
+	// call the update function every 30 seconds
+	setInterval(updateValues, 30000);
+	
+	// function that retrieves updated data from Arduino and update charts and gauges
+	function updateValues() {
+	
+		var actualTemp;
+		var actualHum;
+		var gotData = false;
+		
+		// get data from Arduino, in JSON format and using JSONP to perform a cross-domain call
+		var jqxhr = $.ajax({
+			url: 'http://192.168.1.1/?callback=?',
+			dataType: 'jsonp',
+			jsonpCallback:'myCB'})
+		
+			// if the request was successful...
+			.done(function(data) { 
+			
+				// save retrieved data in two variables and display it on JS console
+				actualTemp = data.temperature;
+				actualHum = data.humidity;
+				console.log("---------- Got new data ----------");
+				console.log("Temperature:\t" + actualTemp);
+				console.log("Humidity:\t" + actualHum);
+				console.log("");
+				console.log("Updating values...");
+		
+				// update charts, removing the oldest value		
+				var x = (new Date()).getTime();
+				if(tempData.length == 10) tempData.shift();
+				tempData.push([x, actualTemp]);
+				tempChar.series[0].data = tempData;
+				tempChar.resetAxesScale();
+				tempChar.axes.xaxis.tickInterval = 30;
+				tempChar.axes.yaxis.min = 0;
+				tempChar.axes.yaxis.max = 30;
+				tempChar.replot();
+
+				if(humData.length == 10) humData.shift();
+				humData.push([x, actualHum]);
+				humChar.series[0].data = humData;
+				humChar.resetAxesScale();
+				humChar.axes.xaxis.tickInterval = 30;
+				humChar.axes.yaxis.min = 0;
+				humChar.axes.yaxis.max = 100;
+				humChar.replot();
+
+				// update gauges
+				tempGauge.setValue(actualTemp);
+				humGauge.setValue(actualHum);
+				
+				console.log("...done!");
+				console.log("");
+			})
+			
+			// if error print it on JS console
+			.fail(function() { console.log( "Unable to get new data :("); });
+	}
+	
+</script>
+
+</head>
+<body>
+    <div style="position:absolute;left:10px;top:10px;height:300px;width:600px;" id="tempchartdiv"></div> 
+	<canvas style="position:absolute;left:640px;top:35px" id="tempgauge"></canvas>
+	<div style="position:absolute;left:10px;top:320px;height:300px;width:600px;" id="humchartdiv"></div> 
+	<canvas style="position:absolute;left:640px;top:345px" id="humgauge"></canvas>
+</body>
+</html>
