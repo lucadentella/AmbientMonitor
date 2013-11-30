@@ -1,0 +1,14 @@
+AmbientMonitor
+
+Client-side only dashboard for monitoring temperature and humidity.
+Sensor:	AM2302
+Board:	Arduino + ethernet shield
+Client:	AJAX dashboard
+
+
+Project description on my blog:
+http://www.lucadentella.it/2013/08/07/ambientmonitor/
+
+Thanks to:
+jqPilot			http://www.jqplot.com/
+canv-gauge		https://github.com/Mikhus/canv-gauge
